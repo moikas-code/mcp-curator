@@ -13,7 +13,8 @@ import {
   showCurrent,
   backupCurrent,
   init,
-  applyProjectTemplateGlobally
+  applyProjectTemplateGlobally,
+  updateSelf
 } from '../lib/commands.js';
 import {
   showProjectConfig,
@@ -30,7 +31,7 @@ import {
 program
   .name('mcp-curator')
   .description('Curate and manage MCP server configurations across global and project scopes')
-  .version('1.0.0');
+  .version('0.0.2');
 
 // Initialize the config store
 program
@@ -186,5 +187,13 @@ project
   .description('Apply a global preset to project configuration')
   .option('-b, --backup', 'Backup current project config before applying')
   .action(applyProjectPreset);
+
+// Update command
+program
+  .command('update')
+  .description('Update mcp-curator to the latest version')
+  .option('-g, --global', 'Update global installation (default)')
+  .option('-c, --check', 'Check for updates without installing')
+  .action(updateSelf);
 
 program.parse();
