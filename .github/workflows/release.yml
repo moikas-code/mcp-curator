@@ -37,8 +37,15 @@ jobs:
         run: |
           # Extract version from tag
           VERSION=${GITHUB_REF#refs/tags/v}
-          # Update package.json version
-          npm version $VERSION --no-git-tag-version
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          
+          # Only update if versions differ
+          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+            npm version $VERSION --no-git-tag-version
+          else
+            echo "Version $VERSION already set in package.json"
+          fi
 
       - name: Publish to npm
         run: npm publish --access public
