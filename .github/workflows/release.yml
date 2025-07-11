@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: |
+          if [ -f "package.json" ] && grep -q "\"test\":" package.json; then
+            npm test
+          else
+            echo "No test script found, skipping tests"
+          fi
+
+      - name: Update package version
+        run: |
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          # Update package.json version
+          npm version $VERSION --no-git-tag-version
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            # First release
+            echo "## Initial Release" > CHANGELOG_CURRENT.md
+            echo "" >> CHANGELOG_CURRENT.md
+            echo "First release of MCP Curator!" >> CHANGELOG_CURRENT.md
+          else
+            # Generate changelog from commits
+            echo "## What's Changed" > CHANGELOG_CURRENT.md
+            echo "" >> CHANGELOG_CURRENT.md
+            git log ${PREV_TAG}..HEAD --pretty=format:"* %s (%h)" >> CHANGELOG_CURRENT.md
+          fi
+          
+          # Set changelog as output
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG_CURRENT.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
